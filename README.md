@@ -1,3 +1,4 @@
 # SuperstoreAnalysis
 Income maximization. Promotions analysis.
-file:///C:/Users/vicky/OneDrive/Documents/TP%20SUPERSTORE/SuperstoreData.html
+https://github.com/victoriavallejo0/SuperstoreAnalysis/blob/main/Data%20Analysis.html
+
