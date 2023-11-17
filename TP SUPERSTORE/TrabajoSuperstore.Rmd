@@ -1,0 +1,115 @@
+---
+title: "Superstore dataset "
+author: "Sargenti & Vallejo"
+output: html_document
+date: '2022-04-26'
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,libraries}
+suppressPackageStartupMessages(library(tidyverse,ggthemes))
+
+```
+
+```{r}
+df <- read.csv("~/Sample - Superstore.csv")
+class(df$Sales) = "Numeric"
+```
+
+# 1-	Objetivo
+#### a. Max ciudades/states
+```{r}
+
+```
+#### b. Hay algun tipo de relacion entre el descuento y el valor de compra // Porcentaje de clientes que vuelven a elegir el supermercado luego de haber comprado (analizar si tienen descuento y diversos factores)
+```{r}
+names(df)
+descuentos=lm(Discount~Sales,data=df)
+summary(descuentos)
+```
+
+##### El alto error estandar residual y el bajo valor de R cuadrado demuestra que el descuento no influye significativamente en el valor de la compra.
+Para chequear esta independencia graficamente procedemos a realizar un diagrama de puntos.
+
+```{r}
+df %>% select(c('Discount', 'Sales')) %>% 
+  ggplot(aes(x = Discount, y = Sales)) + geom_point( color= '#ff9d5c') +
+  geom_smooth(method = lm)
+```
+
+##### No existe correlacion alguna entre descuentos y ventas; no se encuentran mayores ventas a mayores descuentos.
+##### La mayor cantidad de compras se situa donde no tienen descuentos, con un porcentaje de: 
+```{r}
+cant_datos_sindesc = df %>% filter (df$Discount == 0) %>% count()
+cant_datos_tot = dim (df)
+porcentaje = round(cant_datos_sindesc / cant_datos_tot *100,2)
+porcentaje
+```
+##### % sobre el total de las compras.
+
+#### c. Con qué tipo de cliente se obtiene el mayor profit (“segment”)
+#### d. Que tipo de categoría de productos se encuentra entre la más comprada y cuál menos 
+(“category”)
+#### e. Tiempo estimativo de shipping según tipo de shipping con el objetivo de determinar la efectividad y cual no cumple con el lapso estimado. (ver cual es el más elegido y si lo vuelven a elegir los clientes)
+#### f. Teniendo en cuenta el profit calculado por estado, es conveniente continuar en las ubicaciones actuales? ¿Se debería reubicar? ¿Es necesario agregar más supermercados en algunos estados?
+#### g. En qué estados se muestra la menor cantidad de clientes (sin repetir) con el fin de mayor promoción en aquellos
+
+
+#### 2-	Descripción de Superstore dataset
+Supuertore muestra una base de datos de las compras realizadas en el supermercado “Superstore Giant” en Estados Unidos. Debido a la alta demanda y gran competencia del mercado, se busca una interpretación analítica para una mejor toma de decisiones.  Es por eso que se analizarán los tipos de producto, el segmento de clientes y las ubicaciones actuales a los cuales deberían dirigirse o evitar, con el fin de generar una mayor rentabilidad.
+
+```{r}
+summary (df)
+```
+
+#### 3-	Características
+Cada registro especifica por cada compra: 
+Row ID => ID único para cada fila.
+Order ID => ID de pedido único para cada cliente.
+Order Date => Fecha de pedido del producto.
+Ship Date => Fecha de Envío del Producto.
+Ship Mode=> Modo de envío especificado por el Cliente.
+Customer ID => Identificación única para identificar a cada Cliente.
+Customer Name => Nombre del Cliente.
+Segment => El segmento al que pertenece el Cliente.
+Country => País de residencia del Cliente.
+City => Ciudad de residencia del Cliente.
+State => Estado de residencia del Cliente.
+Postal Code =>Código Postal de cada Cliente.
+Region => Región a la que pertenece el Cliente.
+Product ID => ID único del producto.
+Category => Categoría del producto pedido.
+Sub-Category => Sub-Categoría del producto pedido.
+Product Name => Nombre del producto
+Sales => Ventas del Producto.
+Quantity => Cantidad del Producto.
+Discount => Descuento proporcionado.
+Profit => Beneficio/Pérdida incurrida.
+
+``` {r}
+str (df)
+```
+
+#### 4-	Estadísticas descriptivas
+``` {r}
+
+```
+
+#### 5- Variables a utilizar, a descartar y por qué. En el caso de valores faltantes y extremos, defina una estrategia para lidiar con ellos.  
+Utilizar:
+Row ID => ID único para cada fila.
+Ship Date => Fecha de Envío del Producto.
+Ship Mode=> Modo de envío especificado por el Cliente.
+Customer ID => Identificación única para identificar a cada Cliente
+Segment => El segmento al que pertenece el Cliente.
+State => Estado de residencia del Cliente.
+Product ID => ID único del producto.
+Category => Categoría del producto pedido.
+Sales => Ventas del Producto.
+Quantity => Cantidad del Producto.
+Discount => Descuento proporcionado.
+Profit => Beneficio/Pérdida incurrida.
+
+

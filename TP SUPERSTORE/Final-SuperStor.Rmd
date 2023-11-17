@@ -1,0 +1,517 @@
+---
+title: "Superstore dataset "
+author: "Sargenti & Vallejo"
+date: "`r format(Sys.Date())`"
+output: 
+  bookdown::html_document2:
+    theme: readable
+    toc_depth: 2 # Depth of headers to include in table of contents
+    toc_float: true
+    code_download: false
+    number_sections: true
+    citation_package: natbib
+link-citations: yes
+bibliography: []
+---
+
+```{r setup,echo= FALSE, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, echo = TRUE, message = FALSE)
+```
+
+```{r,echo=FALSE, Warning= FALSE, libraries}
+suppressPackageStartupMessages(library(tidyverse,ggthemes))
+```
+
+
+```{r echo=FALSE, warning=FALSE,include=FALSE}
+library(readr)
+library (dplyr)
+library(readxl)
+#df <- read_delim("Superstore.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+df <- read_excel ("SuperstoreDataSet.xlsx")
+```
+
+
+## Objetivo  {#Objetivo}
+
+El presente documento tiene como objetivo el establecimiento de precios y cantidades para la maximización de los ingresos totales del SuperStore. Esto se podrá lograr a través del cumplimiento de los siguientes sub-objetivos:
+
+  a. Desarrollo de una metodologia del precio maximizador del ingreso total.
+  
+  b. Determinar si el segmento del cliente es independiente al tipo de producto.
+  
+  c. Metodologia de un sistema de promociones.
+  
+  
+## Desarrollo del Objetivo
+
+Para el cumplimiento del objetivo propuesto se utilizará el algoritmo de regresión lineal. A partir del algoritmo de regresión, se obtendrá los coeficientes para la formación de la ecuación general de la demanda (Qd=B0 + B1*P), el porcentaje de variabilidad explicado por el modelo y el p-value. Este último validará el modelo una vez que sea menor a 0,05 con un nivel de confianza del 95%. 
+
+Ya validado el modelo, se obtiene la función de demanda, lo que permitirá calcular el ingreso total y así el precio maximizador del ingreso total. A su vez este procedimiento se realizará nuevamente, segmentando por categoría de producto, con el fin de evaluar el diferencias entre los precios maximizadores.
+
+
+## Descripción de las Variables a utilizar
+```{r,echo=FALSE}
+variables_cant = dim(df)[2]
+registros_cant= dim(df)[1]
+```
+La base SuperStore cuenta con `r variables_cant` variables y `r registros_cant` registros.
+```{r echo=FALSE}
+sapply(df,typeof)
+```
+Las variables que se utilizaron para hacer posible nuestro análisis relacionado al objetivo fueron: 
+
+  1. "Segment": Describe la categoría del cliente, la cuál puede variar entre Consumer, Corporate y Home Office. (Es de tipo Character)
+  
+  2. "Category": Describe la primera categoría por la cuál estan segmentados los productos. Entre ellas se encuentra Furniture, Technology y Office Supplies. (Es de tipo Character)
+  
+  3. "Sales":Describe el valor total de la compra realizada (Es de tipo Double)
+  
+  4."Quantity":Describe la cantidad comprada del producto (Es de tipo Integer)
+
+Ya se que durante el análisis se precisa una variables que contenga el precio por unidad, para poder así determinar la demanda, se creó esta variable de tipo Integer con el nombre de Price. Para esto, fue necesario hacer modificaciones en los tipo de dato de las variables Quatity y Sales. 
+Para la unificación de los valores del data, se infirió sobre la variable Profit.
+
+```{r echo=FALSE}
+df$Sales = gsub('\\.', '',df$Sales)
+df$Quantity=as.numeric(df$Quantity)
+df$Sales=as.numeric(df$Sales)
+df=mutate (df, Price = Sales/Quantity)
+df$Profit = gsub('\\.', '',df$Profit)
+df$Profit= gsub('\\,,', '',df$Profit)
+df$Profit= gsub('\\,', '',df$Profit)
+df$Profit=as.numeric(df$Profit)
+df$Discount=as.numeric(df$Discount)
+View(df)
+```
+
+```{r echo=FALSE}
+library(funModeling)
+library(dplyr)
+df_seleccionada= df%>%select(Category,Segment,Sales,Price, Quantity, Discount)
+
+plot_num(df_seleccionada)
+```
+
+Las demas variables que no fueron nombradas, serán descartadas ya no que no fueron relevantes para el análisis del objetivo propuesto.
+
+```{r echo=FALSE}
+##### Missings
+cantidad_Na=sum(is.na(df))
+```
+
+```{r echo=FALSE}
+##### outliers General
+boxplot(log(df$Sales),main="Sales")
+boxplot(df$Quantity,main="Quantity")
+boxplot(log(df$Price),main="Price")
+```
+Si bien se encuentran outliers en las variables Sales y Price, estos no seran considerados como outliers, ya que la base presenta una división de productos con mucha variablidad entre sus precios.
+Es por eso que se decidió ver si en cada categoria de producto se encontraban outliers en estas variables.
+
+```{r echo=FALSE}
+boxplot(log(df$Sales) ~ df$Category, main="Sales")
+```
+
+```{r echo=FALSE}
+boxplot(log(df$Price) ~ df$Category, main="Price")
+```
+
+```{r echo=FALSE}
+boxplot(log(df$Quantity) ~ df$Category, main="Quantity")
+```
+
+## Lista de Variables
+```{r echo=FALSE}
+df_variables=df%>%select(Sales, Quantity, Price,Category, Segment, Discount)
+summary(df_variables)
+df %>% filter(Price>1000000)
+```
+
+A partir del resumen de cada variable, fue posible observar la gran magnitud entre los valores máximo y minímo de las variables númericas, en especial en Sales y Price. Esto es justificado debido a la gran variedad de productos, y en consecuencia a la difrencia entre las distintas sub categorías, y por lo tanto a la diferencia de precios entre sí.
+
+## Relación entre las Variables
+```{r}
+df %>% filter(Category=="Furniture",Price>3000000) %>%group_by(`Product Name`) %>% summarise(mean(Price))
+```
+
+```{r}
+df %>% 
+  group_by(Category) %>% 
+  summarise(count = n()) %>% 
+  filter(count > 400) %>%
+   ggplot() +
+  geom_col(aes(x =Category, y = count), fill= '#1ca9c9')  +
+  coord_flip() +
+ ggthemes::theme_few()
+```
+```{r echo=FALSE}
+#Sistema de recomendacion
+library(data.table)
+setDT(df)
+CategxSeg = dcast(df, Segment ~ Category, value.var = "Quantity",fun.aggregate = sum, na.rm = T)
+CategxSeg
+Cat = CategxSeg[,2:4]
+Cat[,names(.SD)[max.col(.SD,ties.method="first")]]
+```
+A partir de la tabla armada, es posible notar que en cada Segmento de clientes, el tipo de producto más consumido es del tipo Office Supplies. Esto podria deberse a que los productos que se encuentran dentro de esta categoría, son elementos de consumo diario y no requiere una mayor inversion su compra.
+
+Continuado con el análisis, se quiere conocer si la categoría comprada es independiente al segmento de cliente. Por lo tanto, se construye el siguiente test de hipotesis:
+
+H0: Las variables son independientes
+
+H1: Las variables son dependientes
+
+```{r echo=FALSE}
+#FORMA 1 chi cuadrado, discretizando variable
+independecia_variables = table (df$Segment,df$Category) # se discretiza la variable numerica
+chisq.test(independecia_variables)
+```
+
+Al obtener un estadístico de Chi-Cuadrado lejano a 0, es posible rechazar H0, concluyendo que la categoria de producto comprada es dependiente del segmento de cliente. Es decir que las variables Segment y Category se relacionan entre sí.
+
+```{r echo=FALSE}
+plot(independecia_variables, col="blue")
+```
+
+## Técnicas de Análisis
+
+Se quiere saber si existe algún tipo de relación entre la cantidad y el precio. Para ello, realizamos una regresión lineal de la demanda, al ser la regresión  la herramienta la cuál nos permite encontrar una relación particular entre estas dos variables. 
+
+ECUACIÓN DE DEMANDA TOTAL
+
+H0: El modelo no es válido
+
+H1: El modelo si es válido
+
+```{r echo=FALSE}
+#Para obtener B0 (Interception), demanda NORMAL SIN CATEG
+demandaGral=lm(Quantity ~ Price, data=df)
+summary (demandaGral)
+demandaGral$coefficients
+```
+Se obtiene un p -value igual a 0.02328, el cual es menor a 0.05,por lo tanto se rechaza H0 y se concluye que el modelo es válido con un nivel de significación del 95%.
+
+H0: La variable Price no aporta al modelo propuesto
+
+H1: La variable Precio aporta al modelo propuesto
+
+ α = 0,05
+ 
+CR: Pr(>|t|) < 0,05
+
+Pr(>|t|) =0.0233 
+
+Teniendo en cuenta que el Pr(>|t|) =0.0233 , es posible rechazar H0 y por lo tanto concluir que el precio sí aporta al modelo.
+
+A partir de esto se fórmula la ecuacion de demanda total:
+
+Qd =  3.801138e+00 -3.956936e-07 * P
+
+Posteriormente se formula la ecuaciÓn de Ingreso total y el Ingreso Marginal:
+
+IT = P*Q
+
+IT = 3.801138e+00 P - 3.956936e-07 * P**2
+
+IMg = 3.801138e+00 - 7.913872e-07 * P
+
+```{r echo=FALSE}
+Precio = 3.801138e+00 / 7.913872e-07
+Qd =  3.801138e+00 - (3.956936e-07 * Precio)
+Qd=round(Qd,0)
+IT = Precio*Qd
+"Precio maximizador" 
+Precio
+"Cant maximizadora"
+Qd
+"IT max"
+IT
+```
+El precio que maximiza el Ingreso Total es `r Precio`, mientras que la cantidad que maximiza es `r Qd`.
+
+Por lo tanto el Ingreso total Maximizado es igual a `r IT`
+
+A continuacion se mostrara el grafico de la ecuacion de demanda general:
+```{r echo=FALSE}
+df %>% select(c('Price','Quantity')) %>% ggplot(aes(x = log(Price), y = Quantity))  + geom_smooth(method = lm)
+```
+
+```{r echo=FALSE}
+#DUDA --> COMO GRAFICAR LA CURVA DE MAXIMIZACION DE PRECIO
+x1 = Qd = round(3.801138e+00 - 3.956936e-07 * df$Price)
+y1 = IT = df$price * Qd
+df %>% select(c('Price','Quantity')) %>% ggplot(aes(x =round(3.801138e+00 - 3.956936e-07 * df$Price) , y = df$Price * Qd))
+```
+
+Debido a que los precios varian en relacion a cada cateoria de producto, se considero que es necesario evaluar la relacion no solo entre cantidad y precio, sino tambien considerando la categoria del producto. Es por eso que se volvio a utilizar el algoritmo de regresion lineal, pero esta vez agregando la categoria del producto como una variable mas en el analisis.
+
+
+ECUACION DE DEMANDA PARA CADA CATEGORIA DE PRODUCTO
+
+H0: El modelo no es válido
+
+H1: El modelo si es válido
+
+```{r echo=FALSE}
+demandaCateg=lm(Quantity ~ 0+Category+Price, data=df)
+summary(demandaCateg)
+demandaCateg$coefficients
+```
+Se obtiene un p -value igual a 2.2e-16, el cual es menor a 0.05,por lo tanto se rechaza H0 y se concluye que el modelo es vÁlido con un nivel de significaciÓn del 95%.
+
+Qué tanto explica el modelo?
+
+Adjusted R-squared:  0.7436 
+
+Un 74,36% de la variabilidad del precio (Price) es explicado por la cantidad (Quantity), lo cuál es un porcentaje alto. Sin embargo, tal correlación no implica causalidad entre las variables.
+
+A continuacion se realizará un analisis de la demanda por cada categoria de Producto:
+
+
+CATEGORIA FURNITURE:
+
+H0: La variable Precio (Categoría Furniture) no aporta al modelo propuesto
+
+H1: La variable Precio (Categoría Furniture) aporta al modelo propuesto
+
+ α = 0,05
+ 
+CR: Pr(>|t|) < 0,05
+
+Pr(>|t|) =2e-16
+
+Como Pr(>|t|) =2e-16 es menor a 0,05 es posible rechazar H0, concluyendo que el precio de categoría Furniture si aporta al modelo de regresión lineal.
+
+A partir de esto se fórmula la ecuación de demanda de la categoría Furniture:
+
+QdF =  3.813e+00 -3.922377e-07 * P
+
+Posteriormente se formula la ecuación de Ingreso total y el Ingreso Marginal para la categoría Furniture:
+
+IT = P*Q
+
+IT = 3.813e+00* P - 3.922377e-07 * P**2
+
+IMg = 3.813e+00 - 7.844754e-07 * P
+
+A continuación se obtiene el precio y la cantidad que máximiza el Ingreso Total para la categoría Furniture.
+```{r echo=FALSE}
+PrecioF= 3.813e+00 / 7.844754e-07
+QdF =  3.813e+00 -(3.922377e-07 * PrecioF)
+QdF=round(QdF,0)
+ITF = PrecioF*QdF
+```
+
+El precio que maximiza el Ingreso Total para la categoría Furniture es `r PrecioF` y la cantidad es `r QdF`.
+ 
+Por lo tanto el Ingreso total Maximizado para la categoría Furniture es `r ITF`
+
+```{r echo=FALSE}
+df_Office = df%>%filter(Category=="Office Supplies")
+demandaO=lm(Quantity ~ Price, data=df_Office)
+summary (demandaO)
+demandaO$coefficients
+df_Office %>% select(c('Price','Quantity')) %>% ggplot(aes(x = log(Price), y = Quantity))  + geom_smooth(method = lm)
+```
+
+
+CATEGORÍA OFFICE SUPPLIES
+
+H0: La variable Precio (Categoría Office Supplies) no aporta al modelo propuesto
+
+H1: La variable Precio (Categoría Office Supplies) aporta al modelo propuesto
+
+ α = 0,05
+ 
+CR: Pr(>|t|) < 0,05
+
+Pr(>|t|)=2e-16 
+
+Como Pr(>|t|) =2e-16 es menor a 0,05 es posible rechazar H0, concluyendo que el precio de categoría Officen Supplies si aporta al modelo de regresión lineal.
+
+A partir de esto se formula la ecuación de demanda de la categoría Office Supplies:
+QdS =  3.806e+00 - 3.922e-07 * P
+ Qd Os = 3.809e+00  - 6.509e-07 * P
+Posteriormente se formula la ecuación de Ingreso total y el Ingreso Marginal para la categoría Office Supplies:
+
+ITS = P*Q
+
+ITS = 3.809e+00* P - 6.509e-07 * P**2
+
+IMgS = 3.809e+00 - 1.3018e-06 * P
+
+A continuación se obtiene el precio y la cantidad que maximiza el Ingreso Total para la categoría Office Supplies.
+
+```{r echo=FALSE}
+PrecioS= 3.809e+00 / 1.3018e-06
+QdS =  3.809e+00 - (1.3018e-06 * PrecioS)
+QdS=round(QdS,0)
+ITS = PrecioS*QdS
+```
+El precio que maximiza el Ingreso Total para la categoría Office Supplies es `r PrecioS` y la cantidad es `r QdS`.
+ 
+Por lo tanto el Ingreso total Maximizado para la categoría Office Supplies es `r ITS`
+
+
+CATEGORÍA TECHNOLOGY
+
+H0: La variable Precio (Categoría Technology) no aporta al modelo propuesto
+
+H1: La variable Precio (Categoría Technology) aporta al modelo propuesto
+
+ α = 0,05
+ 
+CR: Pr(>|t|) < 0,05
+
+Pr(>|t|) =2e-16 
+
+Como Pr(>|t|) =2e-16 es menor a 0,05 es posible rechazar H0, concluyendo que el precio de categoría Officen Supplies si aporta al modelo de regresión lineal.
+
+A partir de esto se formula la ecuación de demanda de la categoria Technology:
+
+QdT =  3.771167e+00 - -3.922377e-07 * P
+
+Posteriormente se formula la ecuación de Ingreso total y el Ingreso Marginal para la categoría Technology:
+
+ITT = P*Q
+
+ITT = 3.771167e+00* P - 3.922377e-07 * P**2
+
+IMgT =  3.771167e+00 - 7.844754e-07 * P
+
+A continuación se obtiene el precio y la cantidad que maximiza el Ingreso Total para la categoría Technology
+```{r echo=FALSE}
+PrecioT=  3.771167e+00 / 7.844754e-07
+QdT =  3.771167e+00 -(3.922377e-07  * PrecioT)
+QdT=round(QdT,0)
+ITT = PrecioT*QdT
+```
+El precio que maximiza el Ingreso Total para la categoría Office Supplies es `r PrecioT` y la cantidad es `r QdT`.
+ 
+Por lo tanto el Ingreso total Maximizado para la categoría Office Supplies es `r ITT`
+
+Si bien el precio maximizador de la demanda general no difiere de manera significativa a los precios maximizadores por categoría, es preferible utilizar el precio maximizador de cada categoría al ser estos mayores al total.
+
+```{r echo=FALSE}
+Precio
+PrecioF
+PrecioS
+PrecioT
+```
+
+A continuación se mostrara el gráfico de demanda por cada categoría:
+```{r echo=FALSE}
+df %>% select(c('Price','Quantity', "Category")) %>% ggplot(aes(x = log(Price), y = Quantity,color=Category))  + geom_smooth(method = lm)
+```
+
+ELASTICIDAD
+```{r echo=FALSE}
+elastgral =lm(log(Quantity) ~ log(Price), data=df)
+summary(elastgral)
+elastgral$coefficients
+```
+
+```{r echo=FALSE}
+#Elasticidad Gral
+df %>% select(c('Price','Quantity')) %>% ggplot(aes(x = log(Price), y = log(Quantity)))  + geom_smooth(method = lm)
+```
+Variaciones: Var% Q > Var % P
+Ep > 1 pero < infinito, lo cuál significa que son bienes de los cuales el consumidor puede prescindir por lo cuál ante variaciones en el precio, la cantidad demandada varía.
+Var de Q varía más que proporcional
+
+ELASTICIDAD POR CATEGORÍA DE PRODUCTO
+```{r echo=FALSE}
+elastCateg =lm(log(Quantity) ~ 0+Category+log(Price), data=df)
+summary(elastCateg)
+elastCateg$coefficients
+# ELASTICIDAD --> log(Y) = B0 + B1 * log(X) 
+# log(Quantity) --> log(Y)   ; log(Price) --> log(X)  ;  B1 --> Elasticidad  ; B0 --> Intercepción
+```
+La elasticidad del precio de la demanda (B1) = -0,0275526 --> -2,75%
+
+B1 es la elasticidad precio de la demanda, la cual representa el cambio porcentual en la cantidad demandada causado por un 1% de aumento en el precio.
+
+B0 Furniture Intercept =  1.4221163       
+
+B0 Office Supplies Intercept = 1.3787937 
+
+B0 Technology Intercept = 1.4075944 
+
+```{r echo=FALSE}
+#Elasticidad
+df %>% select(c('Price','Quantity', "Category")) %>% ggplot(aes(x = log(Price), y = log(Quantity),color=Category))  + geom_smooth(method = lm)
+```
+
+```{r echo=FALSE}
+##### Discounts
+df_seleccionada %>% group_by(Category) %>% summarise(round(mean(Discount,  na.rm = T)*100,2))
+```
+Se debería aplicar mayores descuentos para la categoría Office Supplies al presentar la mayor elasticidad
+El descuento aplicado a Technology, reducirlo ya que presenta la menor elasticidad
+
+```{r echo=FALSE}
+df %>% select(c('Price','Quantity', "Category", "Discount")) %>% ggplot(aes(x = log(Price*Discount), y = Quantity,color=Category))  + geom_smooth(method = lm)
+```
+```{r}
+df %>% 
+  group_by(`Product ID`) %>% 
+  summarise(count = n()) %>% 
+   ggplot() +
+  geom_col(aes(x = `Product ID`, y = count), fill= '#1ca9c9')  +
+ ggthemes::theme_few()
+```
+
+```{r echo=FALSE}
+library(dplyr)
+library(ggplot2)
+df$Discount=as.numeric(df$Discount)
+df=df %>% mutate(Discount1=case_when
+              (Category=="Furniture"~Discount*0.8,
+                Category=="Technology"~Discount*0.75,
+                Category=="Office Supplies"~Discount*1.3))
+
+df %>% group_by(Category) %>% summarise(round(mean(Discount,  na.rm = T)*100,2))
+
+df %>% select(c('Price','Quantity', "Category", "Discount")) %>% ggplot(aes(x = log(Price*Discount), y = Quantity,color=Category))  + geom_smooth(method = lm)
+
+df %>% select(c('Price','Quantity', "Category", "Discount1")) %>% ggplot(aes(x = log(Price*Discount1), y = Quantity,color=Category))  + geom_smooth(method = lm)
+
+
+df=df %>% mutate(Discount2=case_when
+              (Category=="Furniture"~Discount*1.2,
+                Category=="Technology"~Discount*1.2,
+                Category=="Office Supplies"~Discount*0.85))
+
+df %>% select(c('Price','Quantity', "Category", "Discount2")) %>% ggplot(aes(x = log(Price*Discount2), y = Quantity,color=Category))  + geom_smooth(method = lm)
+
+```
+```{r echo=FALSE}
+df %>% select(c('Price','Quantity', "Category", "Discount2")) %>% ggplot(aes(x = log(Price*Discount2), y = Quantity,color=Category))  + geom_smooth(method = lm)
+```
+```{r echo=FALSE}
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+df
+w_part = df %>% select (`Sub-Category`,Category, Region, Segment)
+arbol = rpart (formula=as.factor(`Sub-Category`) ~ . , data = w_part)
+rpart.plot(arbol, main = "Arbol de decisión - Clasificación prod", extra=1,type=5)
+```
+
+PROMOCIÓN 1
+↑ descuentos 
+
+PROMOCIÓN 2
+↑ descuentos 
+
+PROMOCIÓN 3
+↑ descuentos 
+
+## Conclusión
+Se concluye que existe una correlación entre precio de producto y cantidad comprada lo cual fue posible establecer mediante regresión, permitiendo la maximización del ingreso total mediante el precio y cantidad maximizadores. 
+A su vez también es posible afirmar que el precio maximizador puede variar por categoría de producto.
+
+La categoría de producto consumida y el segmento de consumidor son variables dependientes. 
+
+La categoría de producto más consumida por todos los segmentos de clientes es “Office Supplies” (la menos elástica). Se recomienda destinar mayor presupuesto de marketing y promociones para las categorías “Furniture” y “Technology”.

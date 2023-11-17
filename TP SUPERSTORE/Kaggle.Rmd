@@ -1,0 +1,155 @@
+---
+title: "SuperStore Analysis"
+author: "Aditi Nanoti"
+date: "11/04/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r,libraries}
+suppressPackageStartupMessages(library(tidyverse,ggthemes))
+
+```
+
+```{r}
+df <- read_delim("Superstore.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+# Key Business Insights of SuperStore Sales and Profits
+
+
+## Distribution of Sales
+
+```{r}
+df %>% 
+  summarise(avg_Sales = round(mean(Sales),2))
+```
+
+
+```{r}
+ggplot(df)+geom_histogram(aes(x=Sales))+labs(title='Distribution of Sales',subtitle='average sales is $229.86')+ggthemes::theme_economist()+xlim(0,3000)+ylim(0,900)
+```
+
+
+
+### We Can see that the data is positively skewed. This Indicates that in Future, the sales is more likely to deviate positively from the mean with majority of sales falling under the bracket of 0-1000.
+
+
+
+## Region-wise Distribution of sales
+
+
+```{r}
+df <- read_delim("Superstore.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+ggplot(df)+geom_col(aes(x = Region,y = Sales),fill= '#a3c7d7')+
+labs(title='Region-wise Distribution of Sales',subtitle='West Region generates the highest Sales')+theme_classic()+scale_color_brewer()
+ 
+```
+
+
+## Inter State Comparison of Profits
+
+
+```{r}
+df %>% 
+  filter(State %in% c('Florida','California')) %>% 
+  ggplot() +
+  geom_density(aes(x = Profit,color = State, fill = State), alpha = 0.5) + 
+  labs(title='Comparison Of profits between Florida and California',
+    x = 'Profit',
+    y = 'Frequency'
+  )+
+  theme_minimal()+xlim(-100,100)+
+  scale_fill_brewer(palette = "Blues", name = "State")
+```
+
+
+### Business Operations in California are more profitable than Florida as frequency of earning higher profits is more. Moreover, the frequency of making losses is more in Florida.
+
+
+## Highest Sales Generating Sub-categories of products
+
+
+```{r}
+df %>% 
+  group_by(`Sub-Category`) %>% 
+  summarise(count = n()) %>% 
+  filter(count > 400) %>%
+   ggplot() +
+  geom_col(aes(x = `Sub-Category`, y = count), fill= '#1ca9c9')  +
+  coord_flip() +
+ ggthemes::theme_few()
+  
+```
+
+### Binder is the most popular product.
+
+
+## Segment Wise Sales
+
+
+```{r}
+library(readr)
+print(getwd())
+df <- read.csv("~/Sample - Superstore.csv")
+Segment = df$Segment
+Sales = df$Sales
+library(ggplot2)
+ggplot() + theme_bw() + 
+  geom_bar(aes(x = "", y = Sales, fill = Segment), stat = "identity") + 
+  coord_polar("y", start = 0)+
+  labs(title='El segmento del consumidor final es el cual genera masyores ganancias ')+
+   scale_fill_brewer(palette = "Blues", name = "Segment")
+```
+
+## Category wise Sales
+
+
+```{r}
+Category = df$Category
+Sales = df$Sales
+library(ggplot2)
+Category = Category[order(Sales)]
+Sales = sort(Sales)
+ggplot() + theme_bw() + 
+  geom_bar(aes(x = "", y = Sales, fill = Category), 
+           stat = "identity") + 
+  coord_polar("y", start = 0) + 
+  theme(plot.title = element_text(hjust = 0.5, size = 20),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid=element_blank(),
+        panel.border = element_blank())+
+guides(fill = guide_legend(reverse = TRUE)) + 
+  scale_fill_brewer(palette = "Blues", name = "Category")
+```
+
+## Does Giving discount imply higher sales?
+
+```{r}
+names(df)
+model1=lm(Discount~Sales,data=df)
+summary(model1)
+```
+
+### The quite low R-squared value and high standard error tells us that discounts do not cause higher sales.
+0,01185
+
+
+```{r}
+df %>% 
+  select(c('Discount', 'Sales')) %>% 
+  ggplot(aes(x = Discount, y = Sales)) + 
+  geom_point( color= '#473c8b') +
+  geom_smooth(method = lm)
+```
+
+### There is no significant correlation between Discount and Sales.
+

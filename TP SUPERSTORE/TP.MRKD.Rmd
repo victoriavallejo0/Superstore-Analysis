@@ -1,0 +1,35 @@
+---
+title: "Superstore dataset "
+output: html_document
+date: '2022-04-26'
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+library(readr)
+Superstore <- read_delim("Superstore.csv", 
+                         delim = ";", escape_double = FALSE, trim_ws = TRUE)
+Superstore
+summary (Superstore)
+```
+
+1-	Objetivo
+  a. 
+  b. 
+  c. 
+
+2-	Descripción de Superstore dataset
+
+3-	Características
+
+4-	Estadísticas descriptivas
+
+5- Variables a utilizar, a descartar y por qué. En el caso de valores faltantes y extremos, defina una estrategia para lidiar con ellos.  
+
+
+
